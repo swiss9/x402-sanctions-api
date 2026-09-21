@@ -34,11 +34,6 @@ if (!SIGNING_PRIVATE_KEY || !/^0x[0-9a-fA-F]{64}$/.test(SIGNING_PRIVATE_KEY)) {
   process.exit(1);
 }
 
-if (!process.env.CDP_API_KEY_ID || !process.env.CDP_API_KEY_SECRET) {
-  console.error("[FATAL] CDP_API_KEY_ID and CDP_API_KEY_SECRET are required.");
-  process.exit(1);
-}
-
 const signer = new AuditReceiptSigner(SIGNING_PRIVATE_KEY);
 
 // ─── Pre-computation Cache ──────────────────────────────────────────────────
@@ -230,7 +225,7 @@ app.get("/health", (_req, res) => {
     network: NETWORK,
     asset: USDC_BASE,
     amount: AMOUNT,
-    facilitator: "cdp",
+    facilitator: "payai",
   });
 });
 
@@ -253,7 +248,7 @@ app.listen(PORT, () => {
 ║  Price:          0.01 USDC per call
 ║  Pay To:         ${PAYMENT_ADDRESS}
 ║  Signer:         ${signer.signerAddress}
-║  Facilitator:    CDP (Coinbase Developer Platform)
+║  Facilitator:    PayAI (permissionless)
 ║  Endpoint:       GET /v1/sanctions-check
 ╚══════════════════════════════════════════════════════════════════╝
   `);
