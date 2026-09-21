@@ -66,7 +66,7 @@ function normalise(input: string): string {
 }
 
 function jaroWinkler(a: string, b: string): number {
-  return JaroWinklerDistance(a, b);
+  return natural.JaroWinklerDistance(a, b);
 }
 
 function matchRecord(
