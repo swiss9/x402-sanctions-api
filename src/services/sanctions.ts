@@ -1,4 +1,4 @@
-import { JaroWinklerDistance } from "natural";
+import natural from "natural";
 import type {
   SanctionsQuery,
   SanctionsResult,
