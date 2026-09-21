@@ -4,9 +4,9 @@ import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
 import { LRUCache } from "lru-cache";
 import { x402ResourceServer } from "@x402/express";
+import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { paymentMiddleware } from "@x402/express";
-import { createCdpFacilitatorClient } from "@coinbase/cdp-sdk/x402";
 import {
   createOfferReceiptExtension,
   createEIP712OfferReceiptIssuer,
@@ -28,6 +28,10 @@ export const requestContext = new AsyncLocalStorage<X402RequestContext>();
 
 const MAX_TIMEOUT_SECONDS = 60;
 
+// PayAI facilitator — permissionless, no API keys, no sign-up required.
+// Supports Base Mainnet (eip155:8453) and other networks.
+const PAYAI_FACILITATOR_URL = "https://facilitator.payai.network";
+
 // ─── x402 Resource Server + Hook + Extension Registration ───────────────────
 
 export function createX402Middleware(
@@ -39,11 +43,10 @@ export function createX402Middleware(
   if (!paymentAddress) throw new Error("PAYMENT_ADDRESS is required");
   if (!signingPrivateKey) throw new Error("SIGNING_PRIVATE_KEY is required");
 
-  // CDP Facilitator — resolves credentials from CDP_API_KEY_ID and
-  // CDP_API_KEY_SECRET environment variables automatically.
-  // Implements the HTTPFacilitatorClient interface and can be passed
-  // directly to x402ResourceServer as a drop-in replacement.
-  const facilitatorClient = createCdpFacilitatorClient();
+  // PayAI facilitator client — standard HTTPFacilitatorClient interface.
+  const facilitatorClient = new HTTPFacilitatorClient({
+    url: PAYAI_FACILITATOR_URL,
+  });
 
   // Receipt 1 (proof of purchase) — extension-signed EIP-712 receipt.
   const signingAccount = privateKeyToAccount(signingPrivateKey);
@@ -82,8 +85,7 @@ export function createX402Middleware(
         // Receipt 1: proof of purchase (extension-signed)
         ...declareOfferReceiptExtension({ includeTxHash: false }),
         // Bazaar discovery metadata for agent discovery.
-        // Without this, agents can find the endpoint but cannot construct
-        // a valid call. The HTTP method is inferred from the route key.
+        // The HTTP method is inferred from the route key.
         ...declareDiscoveryExtension({
           input: { name: "John Doe", type: "individual" },
           inputSchema: {
