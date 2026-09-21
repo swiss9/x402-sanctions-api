@@ -1,0 +1,35 @@
+{
+  "name": "x402-ofac-sanctions-audit-api",
+  "version": "1.0.0",
+  "description": "OFAC/Sanctions Screening API with x402 v2 payments and audit-grade EIP-712 execution receipts",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@x402/core": "^2.0.0",
+    "@x402/express": "^2.0.0",
+    "@x402/evm": "^2.0.0",
+    "@x402/extensions": "^2.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "lru-cache": "^11.0.0",
+    "natural": "^8.0.1",
+    "uuid": "^11.0.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
