@@ -34,6 +34,11 @@ if (!SIGNING_PRIVATE_KEY || !/^0x[0-9a-fA-F]{64}$/.test(SIGNING_PRIVATE_KEY)) {
   process.exit(1);
 }
 
+if (!process.env.CDP_API_KEY_ID || !process.env.CDP_API_KEY_SECRET) {
+  console.error("[FATAL] CDP_API_KEY_ID and CDP_API_KEY_SECRET are required.");
+  process.exit(1);
+}
+
 const signer = new AuditReceiptSigner(SIGNING_PRIVATE_KEY);
 
 // ─── Pre-computation Cache ──────────────────────────────────────────────────
@@ -64,7 +69,6 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// Lazy cleanup of expired entries to prevent unbounded memory growth.
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of rateLimitStore) {
@@ -137,8 +141,6 @@ function precomputeMiddleware(req: Request, res: Response, next: NextFunction): 
     return;
   }
 
-  // req.path is stripped of the mount prefix inside a mounted middleware,
-  // so reconstruct the full path from baseUrl + path.
   const fullPath = req.baseUrl + req.path;
   const requestHash = computeRequestHash(
     req.method,
@@ -169,14 +171,11 @@ function precomputeMiddleware(req: Request, res: Response, next: NextFunction): 
 
 const app = express();
 
-// Render terminates TLS at its edge proxy; trust the first hop so req.ip is
-// the client's real IP rather than the proxy's.
 app.set("trust proxy", 1);
 app.use(express.json());
 
 const x402Middleware = createX402Middleware(precomputeCache);
 
-// Pre-computation is scoped to the paid endpoint only.
 app.use("/v1/sanctions-check", precomputeMiddleware);
 app.use(x402Middleware);
 
@@ -231,7 +230,7 @@ app.get("/health", (_req, res) => {
     network: NETWORK,
     asset: USDC_BASE,
     amount: AMOUNT,
-    facilitator: process.env.FACILITATOR_URL || "https://v2.facilitator.mogami.tech",
+    facilitator: "cdp",
   });
 });
 
@@ -254,7 +253,7 @@ app.listen(PORT, () => {
 ║  Price:          0.01 USDC per call
 ║  Pay To:         ${PAYMENT_ADDRESS}
 ║  Signer:         ${signer.signerAddress}
-║  Facilitator:    ${process.env.FACILITATOR_URL || "https://v2.facilitator.mogami.tech"}
+║  Facilitator:    CDP (Coinbase Developer Platform)
 ║  Endpoint:       GET /v1/sanctions-check
 ╚══════════════════════════════════════════════════════════════════╝
   `);
