@@ -10,6 +10,7 @@ import {
 } from "./signer.js";
 import { createX402Middleware, requestContext } from "./middleware/x402.js";
 import { sanctionsService } from "./services/sanctions.js";
+import { buildDiscoveryManifest } from "./well-known.js";
 import { NETWORK, USDC_BASE, AMOUNT } from "./config.js";
 import type {
   SanctionsQuery,
@@ -169,12 +170,33 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(express.json());
 
+// ─── Public Discovery Routes (no payment, no rate limit) ────────────────────
+
+app.get("/.well-known/x402", (_req, res) => {
+  res.json(buildDiscoveryManifest(PAYMENT_ADDRESS));
+});
+
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    signerAddress: signer.signerAddress,
+    payTo: PAYMENT_ADDRESS,
+    network: NETWORK,
+    asset: USDC_BASE,
+    amount: AMOUNT,
+    facilitator: "payai",
+  });
+});
+
+// ─── x402 Payment Middleware ────────────────────────────────────────────────
+
 const x402Middleware = createX402Middleware(precomputeCache);
 
+// Pre-computation is scoped to the paid endpoint only.
 app.use("/v1/sanctions-check", precomputeMiddleware);
 app.use(x402Middleware);
 
-// ─── Route Handler ──────────────────────────────────────────────────────────
+// ─── Paid Route Handler ─────────────────────────────────────────────────────
 
 app.get("/v1/sanctions-check", async (req: Request, res: Response) => {
   const requestHash = req.requestHash;
@@ -215,20 +237,6 @@ app.get("/v1/sanctions-check", async (req: Request, res: Response) => {
   res.status(200).json(body);
 });
 
-// ─── Health Check ───────────────────────────────────────────────────────────
-
-app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    signerAddress: signer.signerAddress,
-    payTo: PAYMENT_ADDRESS,
-    network: NETWORK,
-    asset: USDC_BASE,
-    amount: AMOUNT,
-    facilitator: "payai",
-  });
-});
-
 // ─── Global Error Handler ───────────────────────────────────────────────────
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
@@ -250,6 +258,8 @@ app.listen(PORT, () => {
 ║  Signer:         ${signer.signerAddress}
 ║  Facilitator:    PayAI (permissionless)
 ║  Endpoint:       GET /v1/sanctions-check
+║  Discovery:      GET /.well-known/x402
+║  Health:         GET /health
 ╚══════════════════════════════════════════════════════════════════╝
   `);
 });
