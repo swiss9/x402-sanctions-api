@@ -10,7 +10,6 @@ import {
 } from "./signer.js";
 import { createX402Middleware, requestContext } from "./middleware/x402.js";
 import { sanctionsService } from "./services/sanctions.js";
-import { buildDiscoveryManifest } from "./well-known.js";
 import { NETWORK, USDC_BASE, AMOUNT } from "./config.js";
 import type {
   SanctionsQuery,
@@ -163,6 +162,80 @@ function precomputeMiddleware(req: Request, res: Response, next: NextFunction): 
   requestContext.run({ requestHash }, () => next());
 }
 
+// ─── Discovery Manifest (inline) ────────────────────────────────────────────
+//
+// Served at GET /.well-known/x402
+// This is the machine-readable record of the endpoint's x402 capability.
+// Directory crawlers look for this file to confirm x402 payment support.
+
+function buildDiscoveryManifest(paymentAddress: string) {
+  return {
+    x402Version: 2,
+    name: "OFAC Sanctions Screening API",
+    description:
+      "OFAC SDN sanctions screening with fuzzy Jaro-Winkler matching. Returns screening results plus a signed EIP-712 proof-of-execution receipt.",
+    homepage: "https://x402-sanctions-api.onrender.com",
+    resources: [
+      {
+        resource: "https://x402-sanctions-api.onrender.com/v1/sanctions-check",
+        method: "GET",
+        description:
+          "Screen an individual, entity, vessel, or aircraft name against the OFAC SDN sanctions list.",
+        mimeType: "application/json",
+        input: {
+          type: "query",
+          properties: {
+            name: {
+              type: "string",
+              required: true,
+              description: "The name to screen against the OFAC SDN list",
+            },
+            type: {
+              type: "string",
+              required: true,
+              enum: ["individual", "entity", "vessel", "aircraft"],
+              description: "The entity type to screen for",
+            },
+            threshold: {
+              type: "number",
+              required: false,
+              description: "Jaro-Winkler threshold (0-1), default 0.85",
+            },
+          },
+        },
+        output: {
+          example: {
+            query: { name: "John Doe", type: "individual" },
+            matched: true,
+            matches: [
+              {
+                sdnName: "John Doe",
+                sdnType: "individual",
+                programs: ["SDGT", "IRAN"],
+                score: 1.0,
+                matchType: "exact",
+              },
+            ],
+            screenedAt: "2026-09-21T15:00:00.000Z",
+            sdnListVersion: "2026-09-20",
+            processingTimeMs: 0.42,
+          },
+        },
+        accepts: [
+          {
+            scheme: "exact",
+            network: NETWORK,
+            asset: USDC_BASE,
+            amount: AMOUNT,
+            payTo: paymentAddress,
+            maxTimeoutSeconds: 60,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 // ─── Express App ────────────────────────────────────────────────────────────
 
 const app = express();
@@ -170,7 +243,7 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(express.json());
 
-// ─── Public Discovery Routes (no payment, no rate limit) ────────────────────
+// ─── Public Routes (no payment, no rate limit) ──────────────────────────────
 
 app.get("/.well-known/x402", (_req, res) => {
   res.json(buildDiscoveryManifest(PAYMENT_ADDRESS));
@@ -192,7 +265,6 @@ app.get("/health", (_req, res) => {
 
 const x402Middleware = createX402Middleware(precomputeCache);
 
-// Pre-computation is scoped to the paid endpoint only.
 app.use("/v1/sanctions-check", precomputeMiddleware);
 app.use(x402Middleware);
 
