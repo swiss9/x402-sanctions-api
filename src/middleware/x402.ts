@@ -72,7 +72,7 @@ export function createX402Middleware(
       accepts: [
         {
           scheme: "exact" as const,
-          price: "$$0.002",
+          price: "$0.002",
           network: NETWORK,
           payTo: paymentAddress,
           maxTimeoutSeconds: MAX_TIMEOUT_SECONDS,
